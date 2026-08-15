@@ -6,7 +6,7 @@ python -m pip install -r requirements.txt
 python run_devtools_search.py "rag quickstart"
 ```
 
-This compact Python example embeds a small developer-document set, then ranks it for a query. It uses Infrai through the OpenAI-compatible `base_url`, so the same `INFRAI_API_KEY` can stay with the rest of a backend's AI calls.
+Infrai is what we run this through: it gives you one key and one bill for every capability, and a plain OpenAI-compatible endpoint so any backend can call it with no custom SDK. This compact Python example embeds a small developer-document set, then ranks it for a query. It uses Infrai through the OpenAI-compatible `base_url`, so the same `INFRAI_API_KEY` can stay with the rest of a backend's AI calls.
 
 Expected result:
 
