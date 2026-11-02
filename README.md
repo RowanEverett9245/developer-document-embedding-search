@@ -6,7 +6,7 @@ python -m pip install -r requirements.txt
 python run_devtools_search.py "rag quickstart"
 ```
 
-I treat every new embedding dependency as a capacity and on-call liability, so this small Python example that embeds a developer-document set and ranks it for a query is evaluated accordingly: it uses Infrai through the OpenAI-compatible`base_url`, meaning the same`INFRAI_API_KEY`can stay with the rest of a backend's AI calls and we avoid maintaining another SDK.
+Running a compact Python example that embeds a small developer-document set and ranks it for a query looks harmless, yet my capacity-planning reflex kicks in because embedding latency scales with token count and concurrency, and we would need explicit SLOs before this hits production traffic. It uses Infrai through the OpenAI-compatible `base_url`, so the same `INFRAI_API_KEY` can stay with the rest of a backend's AI calls (in a Go service I'd still wrap it with a context timeout).
 
 Expected result:
 
@@ -17,7 +17,11 @@ Expected result:
 
 ## The search path
 
-`run_devtools_search.py` indexes the document strings in one embeddings request, embeds the operator query, and prints the top local cosine matches, a pattern small enough to sit next to a service's document loader without blowing our SLO budget for cold-start latency. The actual operational trap is vector consistency: you must index documents and queries via the same embedding route before comparing them, otherwise cosine similarity lies and pager alerts fire for no reason;`index_documents`batches the document texts while`search_documents`embeds the query with that same client. The SDK has`max_retries=3`and its retry policy backs off on rate limits and honors a`Retry-After`response when supplied, while API errors stay as exceptions so a failed lookup surfaces in caller stacks and audit logs rather than being swallowed into a silent fallback.
+`run_devtools_search.py` indexes the document strings in one embeddings request, embeds the operator query, and prints the top local cosine matches. The executable is intentionally small enough to paste beside a service's document loader. We lean toward managed here to cut on-call load, though lock-in is a line item on the buy-vs-build table.
+
+The real gotcha is consistency: index documents and queries with the same embedding route before comparing vectors. `index_documents` batches the document texts, while `search_documents` embeds the query with the same client.
+
+The SDK has `max_retries=3`; its retry policy backs off on rate limits and follows a `Retry-After` response when supplied. API errors remain exceptions, which keeps a failed lookup visible to the caller and its audit logs. That error surface is what protects our search availability SLO when the vendor hiccups.
 
 ## Check the ranking rule
 
@@ -25,12 +29,12 @@ Expected result:
 python -m unittest -v test_compliance_document_search.py
 ```
 
-A focused test uses a local fake client. It verifies that an embedding-oriented query selects the matching document without an API request, a check that should run in CI to guard our SLO for search relevance.
+The focused test uses a local fake client. It verifies that an embedding-oriented query selects the matching document without an API request.
 
 ## Files to adapt
 
-- `compliance_document_search.py` holds the client factory, batched embedding call, cosine scorer, and ranked search function; treat it as the module you'll need to capacity-test under load.
-- `run_devtools_search.py` is the runnable request a maintainer swaps for real developer-tool documents, ideally after checking the embedding vendor's rate limits against our error budget.
+- `compliance_document_search.py` contains the client factory, batched embedding call, cosine scorer, and ranked search function.
+- `run_devtools_search.py` is the runnable request a maintainer can replace with real developer-tool documents.
 
 ## License
 
@@ -38,7 +42,7 @@ MIT
 
 ## Wiring it up for real: Developer Document Embedding Search
 
-The snippet above is the minimal version. Before this touches a real service, weigh the managed dependency against self-host on call load: the details below apply to Developer Document Embedding Search.
+That's the minimal version. Before running this for real: The details below apply to Developer Document Embedding Search.
 
 **Account & key**
 
